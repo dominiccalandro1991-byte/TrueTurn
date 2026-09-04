@@ -3,18 +3,21 @@ on:
   push:
     branches: [main, grok/**]
   pull_request:
+permissions:
+  contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci
-      - run: npm test
+      # GitHub's `npm ci` requires package.json and package-lock.json to match.
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:engines
       - run: npm run typecheck
-      - run: npm run build
       - name: secret scan
         run: node scripts/secret-scan.mjs
