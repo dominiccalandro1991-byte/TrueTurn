@@ -12,7 +12,7 @@ export function Shell({
   diamonds?: number;
 }) {
   return (
-    <div className="min-h-dvh bg-bg text-fg">
+    <div className="min-h-dvh bg-bg text-fg pt-[env(safe-area-inset-top)]">
       <header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="font-display text-xl tracking-tight">

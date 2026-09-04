@@ -16,7 +16,7 @@ and uses the same engines. Next.js is deferred, not rejected.
 ## Milestone 0 — Repo & tooling
 
 - [x] Inspect workspace conventions
-- [ ] Create `voltcore-org/TrueTurn` (blocked if caller is not an org member with repo-create)
+- [x] Personal GitHub repo `dominiccalandro1991-byte/TrueTurn` (transfer to org when ready)
 - [x] Monorepo packages: `shared`, `provably-fair`, `game-core`
 - [x] Strict TypeScript, tests, docs skeleton, `.env.example`
 - [x] Feature branch target: `grok/initial-platform-foundation`

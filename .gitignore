@@ -22,3 +22,13 @@ artifacts/imagine_images/
 .project_id
 .node_modules.lock
 public/__grok/
+ios/App/Pods
+ios/App/Podfile.lock
+ios/App/build
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+*.keystore
+*.jks
+*.mobileprovision

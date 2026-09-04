@@ -2,11 +2,24 @@
 
 Server-authoritative multiplayer dice and card club. Every roll is committed before it lands. Tokens and Diamonds are **virtual only** — there is no cash-out, exchange, or real-money gambling in this build.
 
+## Play (web)
+
+Open the live preview. Sit at **10,000**. Roll. Keep scoring dice. Bank. House bots take the other seats.
+
+## Native (App Store + Play Store)
+
+Capacitor shells are in this repo.
+
+- Bundle ID: `com.backroadinc.trueturn`
+- iOS: `npm run native:ios`
+- Android: `npm run native:android`
+- Listing copy, privacy policy, and remaining paid gates: [store/README.md](store/README.md)
+
 ## Local preview (this workspace)
 
 ```sh
 npm install
-npm test
+npm run test:engines
 npm run dev
 ```
 
@@ -28,6 +41,7 @@ The web client is Vite + TanStack Start + React. Shared engines live in `package
 - [Threat model](docs/THREAT_MODEL.md)
 - [Operations](docs/OPERATIONS.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Store deploy](store/README.md)
 
 ## Phase 1 limits
 
