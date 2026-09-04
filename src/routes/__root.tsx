@@ -28,6 +28,7 @@ export const Route = createRootRoute({
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap",
       },
     ],
+    scripts: [{ src: "/telemetry.js" }],
   }),
   component: () => (
     <html lang="en" className="antialiased" suppressHydrationWarning>

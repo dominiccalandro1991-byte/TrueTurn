@@ -141,7 +141,7 @@ export function TableView({
       </div>
 
       {!myTurn && !view.terminal ? (
-        <p className="text-center text-sm text-muted">Waiting on the house.</p>
+        <p className="text-center text-sm text-muted">Waiting on the table.</p>
       ) : null}
 
       <ol className={cn("grid gap-1 text-sm text-muted")}>

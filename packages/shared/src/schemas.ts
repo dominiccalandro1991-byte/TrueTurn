@@ -22,6 +22,17 @@ export const createMatchSchema = z.object({
   idempotencyKey: z.string().min(8).max(80),
 });
 
+export const joinMatchSchema = z.object({
+  table: z.string().min(4).max(80),
+  playerId: z.string().min(8).max(80),
+  displayName: z.string().min(1).max(24),
+});
+
+export const startMatchSchema = z.object({
+  matchId: z.string().min(8),
+  playerId: z.string().min(8).max(80),
+});
+
 export const matchActionSchema = z.object({
   matchId: z.string().min(8),
   playerId: z.string().min(8).max(80),

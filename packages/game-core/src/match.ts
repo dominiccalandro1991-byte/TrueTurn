@@ -24,13 +24,19 @@ export interface FairnessPublic {
   lastShuffleNonce?: number;
 }
 
+export type TablePhase = "lobby" | "live";
+
 export interface MatchRecord {
   id: string;
+  code: string;
   gameId: GameId;
+  phase: TablePhase;
   version: number;
   players: PlayerSeat[];
+  hostId: string;
   humanId: string;
-  state: AnyState;
+  seatCount: number;
+  state: AnyState | null;
   environment: EnvironmentVector;
   serverSeed: Uint8Array;
   clientSeed: Uint8Array;
@@ -45,11 +51,38 @@ export interface MatchRecord {
 
 export interface MatchPublic {
   id: string;
+  code: string;
   gameId: GameId;
+  phase: TablePhase;
+  hostId: string;
+  seatCount: number;
   version: number;
   view: GameView;
   fairness: FairnessPublic;
   environment: EnvironmentVector;
+}
+
+export interface TableListing {
+  id: string;
+  code: string;
+  gameId: GameId;
+  phase: TablePhase;
+  seated: number;
+  seatCount: number;
+  hostName: string;
+}
+
+export function isOpenSeat(seat: PlayerSeat): boolean {
+  return seat.id.startsWith("open_");
+}
+
+export function tableCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 4; i += 1) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)]!;
+  }
+  return out;
 }
 
 function ctxFor(match: MatchRecord): ApplyContext {
@@ -71,22 +104,54 @@ function ctxFor(match: MatchRecord): ApplyContext {
   };
 }
 
+function fairnessOf(match: MatchRecord): FairnessPublic {
+  return {
+    commitment: match.commitment,
+    clientSeed: encodeSeed(match.clientSeed),
+    nextNonce: match.nonce + 1,
+    revealedServerSeed: match.revealed ? encodeSeed(match.serverSeed) : null,
+    lastRoll: match.lastRoll,
+    lastShuffleNonce: match.lastShuffleNonce,
+  };
+}
+
 export function projectMatch(match: MatchRecord, playerId: string): MatchPublic {
   const engine = engines[match.gameId];
+  const catalog = GAME_CATALOG[match.gameId];
+  const claimed = match.players.filter((p) => !isOpenSeat(p));
+  const view: GameView =
+    match.phase === "live" && match.state
+      ? engine.project(match.state, playerId)
+      : {
+          gameId: match.gameId,
+          phase: "lobby",
+          toAct: null,
+          prompt: `${claimed.length} of ${match.seatCount} seated`,
+          scores: {},
+          legal:
+            playerId === match.hostId && claimed.length >= catalog.seats.min
+              ? [{ type: "start", label: "Start table" }]
+              : [],
+          terminal: false,
+          seats: match.players,
+          eventLog: [
+            `Table ${match.code}`,
+            claimed.length >= catalog.seats.min
+              ? "Host can start when the family is in."
+              : `Need ${catalog.seats.min} real player${catalog.seats.min === 1 ? "" : "s"} to start.`,
+          ],
+        };
   return {
     id: match.id,
+    code: match.code,
     gameId: match.gameId,
+    phase: match.phase,
+    hostId: match.hostId,
+    seatCount: match.seatCount,
     version: match.version,
-    view: engine.project(match.state, playerId),
+    view,
     environment: match.environment,
-    fairness: {
-      commitment: match.commitment,
-      clientSeed: encodeSeed(match.clientSeed),
-      nextNonce: match.nonce + 1,
-      revealedServerSeed: match.revealed ? encodeSeed(match.serverSeed) : null,
-      lastRoll: match.lastRoll,
-      lastShuffleNonce: match.lastShuffleNonce,
-    },
+    fairness: fairnessOf(match),
   };
 }
 
@@ -98,27 +163,35 @@ export async function createMatchRecord(input: {
   seatCount?: number;
   location?: EnvironmentLocation;
   premium?: boolean;
+  fillBots?: boolean;
 }): Promise<MatchRecord> {
   const catalog = GAME_CATALOG[input.gameId];
   const seats = Math.min(catalog.seats.max, Math.max(catalog.seats.min, input.seatCount ?? catalog.seats.default));
-  const players: PlayerSeat[] = Array.from({ length: seats }, (_, i) => ({
-    id: i === 0 ? input.playerId : `bot_${i}`,
-    name: i === 0 ? input.displayName : `House ${i}`,
-    seat: i,
-    isBot: i > 0,
-  }));
+  const players: PlayerSeat[] = Array.from({ length: seats }, (_, i) => {
+    if (i === 0) {
+      return { id: input.playerId, name: input.displayName, seat: i, isBot: false };
+    }
+    if (input.fillBots) {
+      return { id: `bot_${i}`, name: `House ${i}`, seat: i, isBot: true };
+    }
+    return { id: `open_${i}`, name: "Open seat", seat: i, isBot: false };
+  });
   const serverSeed = generateServerSeed();
   const clientSeed = await parseClientSeed(input.clientSeed);
   const commitment = await commitServerSeed(serverSeed);
   const engine = engines[input.gameId];
-  const state = engine.initialState(players, commitment);
+  const live = Boolean(input.fillBots);
   return {
     id: createId("m"),
+    code: tableCode(),
     gameId: input.gameId,
+    phase: live ? "live" : "lobby",
     version: 1,
     players,
+    hostId: input.playerId,
     humanId: input.playerId,
-    state,
+    seatCount: seats,
+    state: live ? engine.initialState(players, commitment) : null,
     environment: environmentFromSeed(commitment, input.location, Boolean(input.premium)),
     serverSeed,
     clientSeed,
@@ -127,6 +200,53 @@ export async function createMatchRecord(input: {
     revealed: false,
     seenActions: new Set<string>(),
     createdAt: Date.now(),
+  };
+}
+
+export function joinMatchRecord(
+  match: MatchRecord,
+  input: { playerId: string; displayName: string },
+): MatchRecord {
+  const already = match.players.find((p) => p.id === input.playerId);
+  if (already) return match;
+  if (match.phase !== "lobby") {
+    throw new PlatformError(ERROR_CODES.MATCH_CLOSED, "That table already started");
+  }
+  const open = match.players.find(isOpenSeat);
+  if (!open) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Table is full");
+  open.id = input.playerId;
+  open.name = input.displayName.slice(0, 24) || "Player";
+  open.isBot = false;
+  match.version += 1;
+  return match;
+}
+
+export function startMatchRecord(match: MatchRecord, playerId: string): MatchRecord {
+  if (match.phase === "live" && match.state) return match;
+  if (playerId !== match.hostId) {
+    throw new PlatformError(ERROR_CODES.OUT_OF_TURN, "Only the host can start");
+  }
+  const catalog = GAME_CATALOG[match.gameId];
+  const claimed = match.players.filter((p) => !isOpenSeat(p));
+  if (claimed.length < catalog.seats.min) {
+    throw new PlatformError(ERROR_CODES.INVALID_INPUT, `Need ${catalog.seats.min} players to start`);
+  }
+  match.players = claimed.map((p, i) => ({ ...p, seat: i, isBot: false }));
+  match.state = engines[match.gameId].initialState(match.players, match.commitment);
+  match.phase = "live";
+  match.version += 1;
+  return match;
+}
+
+export function listingOf(match: MatchRecord): TableListing {
+  return {
+    id: match.id,
+    code: match.code,
+    gameId: match.gameId,
+    phase: match.phase,
+    seated: match.players.filter((p) => !isOpenSeat(p)).length,
+    seatCount: match.seatCount,
+    hostName: match.players.find((p) => p.id === match.hostId)?.name ?? "Host",
   };
 }
 
@@ -143,6 +263,9 @@ export async function applyIntent(
   if (match.seenActions.has(input.idempotencyKey)) return match;
   if (input.matchVersion !== match.version) {
     throw new PlatformError(ERROR_CODES.STALE_VERSION, "Stale match version");
+  }
+  if (match.phase !== "live" || !match.state) {
+    throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Table has not started");
   }
   const engine = engines[match.gameId];
   if (engine.isTerminal(match.state)) {
@@ -162,6 +285,7 @@ export async function applyIntent(
 }
 
 export async function applyBotTurn(match: MatchRecord): Promise<MatchRecord> {
+  if (match.phase !== "live" || !match.state) return match;
   const engine = engines[match.gameId];
   if (engine.isTerminal(match.state)) return match;
   const view = engine.project(match.state, match.humanId);

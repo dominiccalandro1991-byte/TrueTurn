@@ -13,6 +13,7 @@ import { spadesEngine } from "./spades.ts";
 import { heartsEngine } from "./hearts.ts";
 import { pitchEngine } from "./pitch.ts";
 import { pinochleEngine } from "./pinochle.ts";
+import { createMatchRecord, joinMatchRecord, startMatchRecord } from "./match.ts";
 
 function seats(n: number, botsFrom = 1): PlayerSeat[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -243,5 +244,25 @@ describe("Spades / Hearts / Pitch / Pinochle", () => {
     const { pinochleDeck } = await import("./cards.ts");
     state = await pinochleEngine.apply(state, "p0", "deal", null, scripted([], [pinochleDeck()]));
     assert.equal(state.players[0]!.hand.length, 12);
+  });
+});
+
+describe("human tables", () => {
+  it("opens empty seats and starts only with real people", async () => {
+    const match = await createMatchRecord({
+      gameId: "farkle",
+      playerId: "player_host00",
+      displayName: "Host",
+      clientSeed: "family-table",
+      seatCount: 2,
+    });
+    assert.equal(match.phase, "lobby");
+    assert.equal(match.state, null);
+    assert.equal(match.players.filter((p) => p.id.startsWith("open_")).length, 1);
+    joinMatchRecord(match, { playerId: "player_guest0", displayName: "Guest" });
+    startMatchRecord(match, "player_host00");
+    assert.equal(match.phase, "live");
+    assert.ok(match.state);
+    assert.equal(match.players.every((p) => !p.isBot), true);
   });
 });
