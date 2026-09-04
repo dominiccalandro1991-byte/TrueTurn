@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "types": [
+      "vite/client",
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@trueturn/shared": [
+        "./packages/shared/src/index.ts"
+      ],
+      "@trueturn/provably-fair": [
+        "./packages/provably-fair/src/index.ts"
+      ],
+      "@trueturn/game-core": [
+        "./packages/game-core/src/index.ts"
+      ]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src",
+    "server",
+    "packages"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps/server"
+  ]
+}
