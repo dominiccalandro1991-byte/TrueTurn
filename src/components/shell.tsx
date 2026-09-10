@@ -24,7 +24,7 @@ export function Shell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-6">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 pb-28 pt-6">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-bg/95 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto grid max-w-5xl grid-cols-2">
           <Link to="/" className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg">

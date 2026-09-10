@@ -53,8 +53,8 @@ function Lobby() {
         },
       });
       await navigate({ to: "/play/$matchId", params: { matchId: match.code } });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not open the table");
+    } catch {
+      setError("Could not open the table. Try again.");
     } finally {
       setBusy(null);
     }
@@ -68,8 +68,8 @@ function Lobby() {
         data: { table: table.trim(), playerId: session.playerId, displayName: session.displayName },
       });
       await navigate({ to: "/play/$matchId", params: { matchId: match.code } });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join");
+    } catch {
+      setError("Table not found. Check the code.");
     } finally {
       setBusy(null);
     }

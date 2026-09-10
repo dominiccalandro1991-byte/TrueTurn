@@ -87,8 +87,8 @@ function Play() {
         },
       });
       setMatch(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Action rejected");
+    } catch {
+      setError("That move was not allowed.");
     } finally {
       setBusy(false);
     }

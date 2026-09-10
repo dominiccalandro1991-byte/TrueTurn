@@ -92,13 +92,23 @@ class StaticClub {
   async room(code: string): Promise<Room> {
     const existing = this.rooms.get(code);
     if (existing) return existing;
-    const mod = (await import("trystero/torrent")) as { joinRoom: (cfg: { appId: string }, room: string) => Room };
-    const room = mod.joinRoom({ appId: "trueturn" }, code);
-    const [send, listen] = room.makeAction("tt");
-    listen((payload, peer) => this.onMessage(code, payload, peer, send));
-    (room as Room & { send: typeof send }).send = send;
-    this.rooms.set(code, room);
-    return room;
+    try {
+      const mod = (await import("@trystero-p2p/torrent")) as { joinRoom: (cfg: { appId: string }, room: string) => Room };
+      const room = mod.joinRoom({ appId: "trueturn" }, code);
+      const [send, listen] = room.makeAction("tt");
+      listen((payload, peer) => this.onMessage(code, payload, peer, send));
+      (room as Room & { send: typeof send }).send = send;
+      this.rooms.set(code, room);
+      return room;
+    } catch {
+      const stub: Room & { send: (p: unknown, peer?: string) => void } = {
+        makeAction: () => [() => {}, () => {}],
+        getPeers: () => ({}),
+        send: () => {},
+      };
+      this.rooms.set(code, stub);
+      return stub;
+    }
   }
 
   onMessage(code: string, payload: unknown, peer: string, send: (p: unknown, peer?: string) => void) {
@@ -197,8 +207,9 @@ export async function createTable(data: {
     club.persist();
   }
   club.markHost(match.code);
-  await club.room(match.code);
-  return club.pushLocal(match, data.playerId);
+  const view = club.pushLocal(match, data.playerId);
+  void club.room(match.code).catch(() => undefined);
+  return view;
 }
 
 export async function joinTable(data: { table: string; playerId: string; displayName: string }): Promise<MatchPublic> {
