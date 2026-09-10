@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "./**/*.{ts,tsx}";
+@source "../pages-static/index.html";
 
 @theme {
   --color-bg: #090a0c;
@@ -33,7 +35,8 @@
   }
   html,
   body,
-  #app {
+  #app,
+  #pages-root {
     min-height: 100%;
     background: var(--color-bg);
     color: var(--color-fg);

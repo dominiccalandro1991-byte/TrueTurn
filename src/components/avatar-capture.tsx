@@ -79,22 +79,27 @@ export function AvatarCapture({
   return (
     <div className="grid gap-3 rounded-[var(--radius-xl)] border border-border bg-surface p-4">
       <p className="text-sm text-muted">One still. We hash it locally into a mesh seed. The photo is discarded.</p>
-      <video ref={videoRef} className="aspect-square w-full max-w-xs rounded-[var(--radius-lg)] bg-raised object-cover" muted playsInline />
+      <video
+        ref={videoRef}
+        className={live ? "aspect-square w-full max-w-xs rounded-[var(--radius-lg)] bg-raised object-cover" : "hidden"}
+        muted
+        playsInline
+      />
       <canvas ref={canvasRef} className="hidden" />
       <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-4" />
         I consent to a one-time avatar job. This is not identity verification.
       </label>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-2">
         <Button type="button" variant="ghost" onClick={() => void openCam()}>
           Open camera
         </Button>
-        <Button type="button" disabled={!consent || busy} onClick={() => void instantiate(true)}>
-          Instantiate from still
+        <Button type="button" disabled={!consent || busy || !live} onClick={() => void instantiate(true)}>
+          Use this still
         </Button>
         <Button type="button" variant="ghost" disabled={!consent || busy} onClick={() => void instantiate(false)}>
-          Silhouette
+          Skip — use a silhouette
         </Button>
       </div>
     </div>

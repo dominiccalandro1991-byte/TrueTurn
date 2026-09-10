@@ -19,8 +19,8 @@ export function Shell({
             TrueTurn
           </Link>
           <div className="flex items-center gap-2 text-xs tabular-nums text-muted">
-            <span className="rounded-full border border-border px-2.5 py-1">T {tokens ?? "—"}</span>
-            <span className="rounded-full border border-border px-2.5 py-1">D {diamonds ?? "—"}</span>
+            <span className="rounded-full border border-border px-2.5 py-1">Tokens {tokens ?? "—"}</span>
+            <span className="rounded-full border border-border px-2.5 py-1">Diamonds {diamonds ?? "—"}</span>
           </div>
         </div>
       </header>

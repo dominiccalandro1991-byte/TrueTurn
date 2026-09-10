@@ -1,6 +1,6 @@
 import { STARTING_DIAMONDS, STARTING_TOKENS } from "../../../packages/shared/src/constants.ts";
 import { useEffect, useState } from "react";
-import { bootstrapWallet, getAvatarFn } from "./api.ts";
+import { bootstrapWallet, createAvatarJobFn, getAvatarFn } from "./api.ts";
 import { loadSession, saveSession, type GuestSession } from "./session.ts";
 import type { AvatarRecord } from "./store.ts";
 
@@ -15,14 +15,27 @@ export function usePlatform() {
 
   async function refresh(playerId = session.playerId) {
     try {
-      const [w, a] = await Promise.all([
+      const [w, existing] = await Promise.all([
         bootstrapWallet({ data: { playerId } }),
         getAvatarFn({ data: { playerId } }),
       ]);
+      let nextAvatar = existing;
+      if (!nextAvatar) {
+        await createAvatarJobFn({
+          data: {
+            playerId,
+            consent: true,
+            bytes: 1024,
+            type: "image/png",
+            seed: `sil_${playerId.slice(-8)}`,
+          },
+        });
+        nextAvatar = await getAvatarFn({ data: { playerId } });
+      }
       setTokens(w.tokens);
       setDiamonds(w.diamonds);
       setHistory(w.history);
-      setAvatar(a);
+      setAvatar(nextAvatar);
     } catch {
       setTokens(STARTING_TOKENS);
       setDiamonds(STARTING_DIAMONDS);
