@@ -46,8 +46,10 @@ export function TableView({
                 selected={picked.includes(i) || view.selected?.includes(i)}
                 disabled={!myTurn || busy}
                 onClick={
-                  view.phase === "selecting"
-                    ? () => setPicked((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]))
+                  view.gameId === "yahtzee"
+                    ? () => onAction("hold", i)
+                    : view.phase === "selecting"
+                      ? () => setPicked((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]))
                     : undefined
                 }
               />

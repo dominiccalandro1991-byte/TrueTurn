@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Dices, ShieldCheck, UserRound, Wallet } from "lucide-react";
+import { Dices, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function Shell({
@@ -26,22 +26,17 @@ export function Shell({
       </header>
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-6">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-bg/95 pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-5xl grid-cols-4">
+        <div className="mx-auto grid max-w-5xl grid-cols-2">
           <Link to="/" className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg">
             <Dices className="size-4" />
-            Lobby
+            Tables
           </Link>
-          <Link to="/wallet" className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg">
-            <Wallet className="size-4" />
-            Wallet
-          </Link>
-          <Link to="/verify" className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg">
-            <ShieldCheck className="size-4" />
-            Verify
-          </Link>
-          <Link to="/avatar" className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg">
-            <UserRound className="size-4" />
-            Avatar
+          <Link
+            to="/settings"
+            className="flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-[11px] text-muted hover:text-fg"
+          >
+            <Settings className="size-4" />
+            Settings
           </Link>
         </div>
       </nav>

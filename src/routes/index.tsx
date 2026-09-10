@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { GAME_CATALOG, GAME_IDS } from "../../packages/shared/src/games.ts";
-import { ENVIRONMENT_LOCATIONS } from "../../packages/shared/src/constants.ts";
 import type { TableListing } from "../../packages/game-core/src/match.ts";
+import { AvatarCapture } from "@/components/avatar-capture";
 import { Button } from "@/components/ui/button";
 import { Shell } from "@/components/shell";
 import { TelemetryBridge } from "@/components/telemetry-bridge";
@@ -12,27 +12,26 @@ import { usePlatform } from "@/lib/platform/use-platform";
 export const Route = createFileRoute("/")({ component: Lobby });
 
 function Lobby() {
-  const { session, update, tokens, diamonds } = usePlatform();
+  const { session, tokens, diamonds, avatar, refresh } = usePlatform();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
+  const [squadCode, setSquadCode] = useState("");
   const [tables, setTables] = useState<TableListing[]>([]);
-  const [location, setLocation] = useState<(typeof ENVIRONMENT_LOCATIONS)[number]>("observatory");
-  const [seats, setSeats] = useState(4);
 
   useEffect(() => {
     let cancelled = false;
-    async function refresh() {
+    async function tick() {
       try {
         const next = await listTablesFn();
         if (!cancelled) setTables(next);
       } catch {
-        /* empty club is fine */
+        /* empty */
       }
     }
-    void refresh();
-    const id = window.setInterval(refresh, 2000);
+    void tick();
+    const id = window.setInterval(tick, 2000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -50,12 +49,13 @@ function Lobby() {
           playerId: session.playerId,
           displayName: session.displayName,
           clientSeed: session.clientSeed,
-          seatCount: Math.min(catalog.seats.max, Math.max(catalog.seats.min, seats)),
-          environmentLocation: diamonds ? location : undefined,
+          seatCount: catalog.seats.default,
+          fillBots: false,
+          squadCode: squadCode || undefined,
           idempotencyKey: `open_${gameId}_${Date.now()}`,
         },
       });
-      await navigate({ to: "/play/$matchId", params: { matchId: match.id } });
+      await navigate({ to: "/play/$matchId", params: { matchId: match.code } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open the table");
     } finally {
@@ -70,7 +70,7 @@ function Lobby() {
       const match = await joinMatchFn({
         data: { table: table.trim(), playerId: session.playerId, displayName: session.displayName },
       });
-      await navigate({ to: "/play/$matchId", params: { matchId: match.id } });
+      await navigate({ to: "/play/$matchId", params: { matchId: match.code } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not join");
     } finally {
@@ -81,126 +81,78 @@ function Lobby() {
   return (
     <Shell tokens={tokens} diamonds={diamonds}>
       <TelemetryBridge phase="lobby" />
-      <section className="mb-8 max-w-2xl">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted">Virtual club · real people · no cash-out</p>
-        <h1 className="mt-2 font-display text-4xl tracking-tight sm:text-5xl">The table does not blink.</h1>
-        <p className="mt-3 max-w-xl text-muted">
-          Open a table, copy the four-letter code, send it to family. They sit in the open seats. You start. Same
-          dice, same cards, no house bots.
-        </p>
-      </section>
-
-      <form
-        className="mb-6 grid gap-3 rounded-[var(--radius-xl)] border border-border bg-surface p-4 sm:grid-cols-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (joinCode.trim()) void joinTable(joinCode);
-        }}
-      >
-        <label className="grid gap-1 text-sm">
-          Display name
-          <input
-            className="min-h-11 rounded-[var(--radius-md)] border border-border bg-bg px-3"
-            value={session.displayName}
-            maxLength={24}
-            onChange={(e) => update({ displayName: e.target.value || "Player" })}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          Luck phrase
-          <input
-            className="min-h-11 rounded-[var(--radius-md)] border border-border bg-bg px-3"
-            value={session.clientSeed}
-            maxLength={64}
-            onChange={(e) => update({ clientSeed: e.target.value || "table-luck" })}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          Seats
-          <select
-            className="min-h-11 rounded-[var(--radius-md)] border border-border bg-bg px-3"
-            value={seats}
-            onChange={(e) => setSeats(Number(e.target.value))}
-          >
-            {[2, 3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>
-                {n} people
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          Join with table code
-          <span className="flex gap-2">
-            <input
-              className="min-h-11 w-full rounded-[var(--radius-md)] border border-border bg-bg px-3 uppercase"
-              value={joinCode}
-              maxLength={80}
-              placeholder="K7M2"
-              onChange={(e) => setJoinCode(e.target.value)}
-            />
-            <Button type="submit" disabled={busy !== null || !joinCode.trim()}>
-              Sit
-            </Button>
-          </span>
-        </label>
-        <label className="grid gap-1 text-sm sm:col-span-2">
-          Table climate {diamonds ? "" : "(randomized — Diamonds unlock a pick)"}
-          <select
-            className="min-h-11 rounded-[var(--radius-md)] border border-border bg-bg px-3"
-            value={location}
-            disabled={!diamonds}
-            onChange={(e) => setLocation(e.target.value as (typeof ENVIRONMENT_LOCATIONS)[number])}
-          >
-            {ENVIRONMENT_LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
-          </select>
-        </label>
-      </form>
-
-      {tables.length > 0 ? (
+      {!avatar?.instantiated ? (
         <section className="mb-8">
-          <h2 className="mb-3 font-display text-xl">Open tables</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {tables.map((table) => (
-              <button
-                key={table.id}
-                type="button"
-                className="rounded-[var(--radius-lg)] border border-border bg-surface p-3 text-left"
-                onClick={() => void joinTable(table.code)}
-              >
-                <p className="font-mono text-lg tracking-[0.2em]">{table.code}</p>
-                <p className="text-sm text-muted">
-                  {GAME_CATALOG[table.gameId].title} · {table.seated}/{table.seatCount} · {table.phase} · host{" "}
-                  {table.hostName}
-                </p>
-              </button>
-            ))}
+          <h1 className="font-display text-4xl tracking-tight">Sit for a still.</h1>
+          <p className="mt-2 max-w-xl text-muted">The club needs a mesh before you open a table.</p>
+          <div className="mt-4">
+            <AvatarCapture playerId={session.playerId} onReady={() => void refresh()} />
           </div>
         </section>
-      ) : null}
-
-      {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {GAME_IDS.map((id) => {
-          const game = GAME_CATALOG[id];
-          return (
-            <article key={id} className="rounded-[var(--radius-xl)] border border-border bg-surface p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted">{game.family}</p>
-              <h2 className="mt-1 font-display text-2xl">{game.title}</h2>
-              <p className="mt-2 text-sm text-muted">{game.blurb}</p>
-              <p className="mt-3 text-xs text-subtle">{game.objective}</p>
-              <Button className="mt-4 w-full" disabled={busy !== null} onClick={() => openTable(id)}>
-                {busy === id ? "Opening…" : `Open table · ${game.anteTokens} T`}
-              </Button>
-            </article>
-          );
-        })}
-      </div>
+      ) : (
+        <>
+          <section className="mb-6 max-w-xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">TrueTurn</p>
+            <h1 className="mt-2 font-display text-4xl tracking-tight">Pick a table.</h1>
+          </section>
+          <form
+            className="mb-6 flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (joinCode.trim()) void joinTable(joinCode);
+            }}
+          >
+            <input
+              className="min-h-11 min-w-40 flex-1 rounded-[var(--radius-md)] border border-border bg-bg px-3 uppercase"
+              placeholder="TABLE CODE"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+            />
+            <Button type="submit" disabled={!joinCode.trim()}>
+              Sit
+            </Button>
+            <input
+              className="min-h-11 w-28 rounded-[var(--radius-md)] border border-border bg-bg px-3 uppercase"
+              placeholder="SQUAD"
+              value={squadCode}
+              onChange={(e) => setSquadCode(e.target.value)}
+            />
+          </form>
+          {tables.length ? (
+            <div className="mb-6 flex flex-wrap gap-2">
+              {tables.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="rounded-full border border-border px-3 py-2 font-mono text-sm"
+                  onClick={() => void joinTable(t.code)}
+                >
+                  {t.code} · {GAME_CATALOG[t.gameId].title} · {t.seated}/{t.seatCount}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {error ? <p className="mb-4 text-sm text-danger">{error}</p> : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            {GAME_IDS.map((id) => {
+              const game = GAME_CATALOG[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void openTable(id)}
+                  className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 text-left"
+                >
+                  <p className="text-xs uppercase tracking-[0.16em] text-muted">{game.family}</p>
+                  <h2 className="mt-1 font-display text-2xl">{game.title}</h2>
+                  <p className="mt-2 text-sm text-muted">{game.blurb}</p>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </Shell>
   );
 }

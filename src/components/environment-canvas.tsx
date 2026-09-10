@@ -8,6 +8,12 @@ const PALETTE: Record<string, [string, string, string]> = {
   harbor: ["#0c1218", "#1a2833", "#c5c0b4"],
   observatory: ["#07080e", "#16182a", "#d5d0c4"],
   "desert-night": ["#100e0c", "#2a2118", "#a8b7c4"],
+  mountain: ["#0b1016", "#1d2a38", "#c9d2d8"],
+  ocean: ["#061018", "#0e3a48", "#7ec8c4"],
+  lunar: ["#0a0a0c", "#2c2c32", "#e7e2d6"],
+  "deep-space": ["#04040a", "#12081c", "#c5b8ff"],
+  rainforest: ["#07140e", "#16351f", "#b7d4a8"],
+  tundra: ["#10141a", "#2a3844", "#d9e6ee"],
 };
 
 function hash32(hex: string): number {

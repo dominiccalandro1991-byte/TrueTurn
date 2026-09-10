@@ -14,6 +14,8 @@ import { heartsEngine } from "./hearts.ts";
 import { pitchEngine } from "./pitch.ts";
 import { pinochleEngine } from "./pinochle.ts";
 import { createMatchRecord, joinMatchRecord, startMatchRecord } from "./match.ts";
+import { scoreYahtzee, yahtzeeEngine } from "./yahtzee.ts";
+import { deadwood } from "./gin.ts";
 
 function seats(n: number, botsFrom = 1): PlayerSeat[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -264,5 +266,51 @@ describe("human tables", () => {
     assert.equal(match.phase, "live");
     assert.ok(match.state);
     assert.equal(match.players.every((p) => !p.isBot), true);
+  });
+
+  it("fills remaining seats with house logic when asked", async () => {
+    const match = await createMatchRecord({
+      gameId: "farkle",
+      playerId: "player_host00",
+      displayName: "Host",
+      clientSeed: "family-table",
+      seatCount: 2,
+    });
+    startMatchRecord(match, "player_host00", { fillBots: true });
+    assert.equal(match.players.length, 2);
+    assert.equal(match.players.filter((p) => p.isBot).length, 1);
+  });
+});
+
+describe("Yahtzee", () => {
+  it("scores canonical boxes", () => {
+    assert.equal(scoreYahtzee("yahtzee", [6, 6, 6, 6, 6]), 50);
+    assert.equal(scoreYahtzee("full-house", [2, 2, 2, 5, 5]), 25);
+    assert.equal(scoreYahtzee("large-straight", [2, 3, 4, 5, 6]), 40);
+    assert.equal(scoreYahtzee("ones", [1, 1, 3, 4, 5]), 2);
+  });
+
+  it("rejects out-of-turn scoring", async () => {
+    let state = yahtzeeEngine.initialState(seats(2));
+    state = await yahtzeeEngine.apply(state, "p0", "roll", null, scripted([[1, 1, 1, 2, 3]]));
+    await assert.rejects(() => yahtzeeEngine.apply(state, "p1", "score", { category: "ones" }, scripted([])));
+  });
+});
+
+describe("Gin deadwood", () => {
+  it("scores a clean melded hand as gin", () => {
+    const hand = [
+      { id: "a1", suit: "spades" as const, rank: "A" },
+      { id: "a2", suit: "hearts" as const, rank: "A" },
+      { id: "a3", suit: "diamonds" as const, rank: "A" },
+      { id: "k1", suit: "spades" as const, rank: "K" },
+      { id: "k2", suit: "hearts" as const, rank: "K" },
+      { id: "k3", suit: "clubs" as const, rank: "K" },
+      { id: "r4", suit: "clubs" as const, rank: "4" },
+      { id: "r5", suit: "clubs" as const, rank: "5" },
+      { id: "r6", suit: "clubs" as const, rank: "6" },
+      { id: "r7", suit: "clubs" as const, rank: "7" },
+    ];
+    assert.equal(deadwood(hand), 0);
   });
 });

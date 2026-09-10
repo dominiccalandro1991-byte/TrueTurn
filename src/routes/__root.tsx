@@ -3,8 +3,20 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { NativeBoot } from "@/components/native-boot";
 import appCss from "../styles.css?url";
+import type { ReactNode } from "react";
 
 const APP_NAME = "TrueTurn";
+
+function AppShell({ children }: { children: ReactNode }) {
+  const pages = typeof document !== "undefined" && Boolean(document.getElementById("pages-root"));
+  return (
+    <>
+      {pages ? null : <PreviewHostBridge />}
+      <NativeBoot />
+      <AuthProvider>{children}</AuthProvider>
+    </>
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -30,19 +42,27 @@ export const Route = createRootRoute({
     ],
     scripts: [{ src: "/telemetry.js" }],
   }),
-  component: () => (
-    <html lang="en" className="antialiased" suppressHydrationWarning>
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <PreviewHostBridge />
-        <NativeBoot />
-        <AuthProvider>
+  component: () => {
+    const pages = typeof document !== "undefined" && Boolean(document.getElementById("pages-root"));
+    if (pages) {
+      return (
+        <AppShell>
           <Outlet />
-        </AuthProvider>
-        <Scripts />
-      </body>
-    </html>
-  ),
+        </AppShell>
+      );
+    }
+    return (
+      <html lang="en" className="antialiased" suppressHydrationWarning>
+        <head>
+          <HeadContent />
+        </head>
+        <body>
+          <AppShell>
+            <Outlet />
+          </AppShell>
+          <Scripts />
+        </body>
+      </html>
+    );
+  },
 });

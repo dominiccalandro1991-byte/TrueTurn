@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AvatarRouteImport } from './routes/avatar'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as PlayMatchIdRouteImport } from './routes/play.$matchId'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const AvatarRoute = AvatarRouteImport.update({
   id: '/avatar',
   path: '/avatar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyRoute = VerifyRouteImport.update({
@@ -44,6 +50,7 @@ const PlayMatchIdRoute = PlayMatchIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/settings': typeof SettingsRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/play/$matchId': typeof PlayMatchIdRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/settings': typeof SettingsRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/play/$matchId': typeof PlayMatchIdRoute
@@ -59,21 +67,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/avatar': typeof AvatarRoute
+  '/settings': typeof SettingsRoute
   '/verify': typeof VerifyRoute
   '/wallet': typeof WalletRoute
   '/play/$matchId': typeof PlayMatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/avatar' | '/verify' | '/wallet' | '/play/$matchId'
+  fullPaths:
+    '/' | '/avatar' | '/settings' | '/verify' | '/wallet' | '/play/$matchId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/avatar' | '/verify' | '/wallet' | '/play/$matchId'
-  id: '__root__' | '/' | '/avatar' | '/verify' | '/wallet' | '/play/$matchId'
+  to: '/' | '/avatar' | '/settings' | '/verify' | '/wallet' | '/play/$matchId'
+  id:
+    | '__root__'
+    | '/'
+    | '/avatar'
+    | '/settings'
+    | '/verify'
+    | '/wallet'
+    | '/play/$matchId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AvatarRoute: typeof AvatarRoute
+  SettingsRoute: typeof SettingsRoute
   VerifyRoute: typeof VerifyRoute
   WalletRoute: typeof WalletRoute
   PlayMatchIdRoute: typeof PlayMatchIdRoute
@@ -93,6 +111,13 @@ declare module '@tanstack/react-router' {
       path: '/avatar'
       fullPath: '/avatar'
       preLoaderRoute: typeof AvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify': {
@@ -122,6 +147,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AvatarRoute: AvatarRoute,
+  SettingsRoute: SettingsRoute,
   VerifyRoute: VerifyRoute,
   WalletRoute: WalletRoute,
   PlayMatchIdRoute: PlayMatchIdRoute,

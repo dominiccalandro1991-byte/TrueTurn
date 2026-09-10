@@ -22,7 +22,7 @@
     "native:www": "node scripts/native-www.mjs",
     "native:sync": "npm run native:www && npx cap sync",
     "native:ios": "npm run native:sync && npx cap open ios",
-    "native:android": "npm run native:sync && npx cap open android",
+    "pages:build": "vite build --config vite.pages.config.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -83,6 +83,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.3.0",
+    "trystero": "^0.25.4",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
     "zod": "^4.4.0",

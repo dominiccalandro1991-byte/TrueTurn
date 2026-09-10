@@ -19,6 +19,8 @@ export type ActionPayload =
   | number[]
   | string[]
   | { amount: number }
+  | { qty: number; face: number }
+  | { category: string }
   | null;
 
 export interface LegalAction {

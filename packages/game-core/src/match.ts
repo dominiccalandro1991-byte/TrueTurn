@@ -221,21 +221,53 @@ export function joinMatchRecord(
   return match;
 }
 
-export function startMatchRecord(match: MatchRecord, playerId: string): MatchRecord {
+export function startMatchRecord(
+  match: MatchRecord,
+  playerId: string,
+  opts?: { fillBots?: boolean },
+): MatchRecord {
   if (match.phase === "live" && match.state) return match;
   if (playerId !== match.hostId) {
     throw new PlatformError(ERROR_CODES.OUT_OF_TURN, "Only the host can start");
   }
   const catalog = GAME_CATALOG[match.gameId];
+  if (opts?.fillBots) {
+    for (const seat of match.players) {
+      if (isOpenSeat(seat)) {
+        seat.id = `bot_${seat.seat}`;
+        seat.name = `House ${seat.seat}`;
+        seat.isBot = true;
+      }
+    }
+  }
   const claimed = match.players.filter((p) => !isOpenSeat(p));
   if (claimed.length < catalog.seats.min) {
     throw new PlatformError(ERROR_CODES.INVALID_INPUT, `Need ${catalog.seats.min} players to start`);
   }
-  match.players = claimed.map((p, i) => ({ ...p, seat: i, isBot: false }));
+  match.players = claimed.map((p, i) => ({ ...p, seat: i }));
+  match.environment = environmentFromSeed(match.commitment, match.environment.location, match.environment.premium, 1);
   match.state = engines[match.gameId].initialState(match.players, match.commitment);
   match.phase = "live";
   match.version += 1;
   return match;
+}
+
+export function reclaimOrTakeover(match: MatchRecord, presence: Map<string, number>, now = Date.now()): void {
+  if (match.phase !== "live") return;
+  for (const p of match.players) {
+    if (p.id.startsWith("bot_")) continue;
+    const seen = presence.get(p.id) ?? 0;
+    const stale = now - seen > 12_000;
+    if (stale && !p.isBot) {
+      p.isBot = true;
+      if (!p.name.endsWith("(away)")) p.name = `${p.name} (away)`;
+      match.version += 1;
+    } else if (!stale && p.isBot) {
+      p.isBot = false;
+      p.name = p.name.replace(/ \(away\)$/, "");
+      match.version += 1;
+    }
+  }
 }
 
 export function listingOf(match: MatchRecord): TableListing {
@@ -281,6 +313,10 @@ export async function applyIntent(
   match.version += 1;
   match.seenActions.add(input.idempotencyKey);
   if (engine.isTerminal(match.state) && !match.revealed) match.revealed = true;
+  const roundFlag = engine.project(match.state, match.humanId).flags?.round;
+  if (typeof roundFlag === "number" && roundFlag !== match.environment.round) {
+    match.environment = environmentFromSeed(match.commitment, undefined, match.environment.premium, roundFlag);
+  }
   return match;
 }
 

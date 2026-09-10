@@ -6,21 +6,27 @@ import {
   createMatchSchema,
   joinMatchSchema,
   matchActionSchema,
+  squadSchema,
   startMatchSchema,
   verifyRequestSchema,
+  wardrobeBuySchema,
 } from "../../../packages/shared/src/schemas.ts";
+import { WARDROBE } from "../../../packages/shared/src/wardrobe.ts";
 import { fromHex } from "../../../packages/provably-fair/src/bytes.ts";
 import { verifyDice, verifyShuffle } from "../../../packages/provably-fair/src/verify.ts";
 import {
+  applyBotTurn,
   applyIntent,
   createMatchRecord,
   joinMatchRecord,
   listingOf,
   projectMatch,
+  reclaimOrTakeover,
   startMatchRecord,
+  tableCode,
 } from "../../../packages/game-core/src/match.ts";
 import { engines } from "../../../packages/game-core/src/registry.ts";
-import { findMatch, memory, playersOnline, touchPresence } from "./store.ts";
+import { findMatch, findSquad, memory, playersOnline, touchPresence } from "./store.ts";
 
 function publicError(error: unknown): never {
   if (error instanceof PlatformError) {
@@ -63,6 +69,20 @@ export const createMatchFn = createServerFn({ method: "POST" })
         premium,
         fillBots: false,
       });
+      if (data.squadCode) {
+        const squad = findSquad(data.squadCode);
+        if (squad) {
+          for (const member of squad.members) {
+            if (member.id !== data.playerId) {
+              try {
+                joinMatchRecord(match, { playerId: member.id, displayName: member.name });
+              } catch {
+                break;
+              }
+            }
+          }
+        }
+      }
       if (catalog.anteTokens > 0) {
         mem.ledger.post({
           userId: data.playerId,
@@ -101,7 +121,7 @@ export const startMatchFn = createServerFn({ method: "POST" })
       touchPresence(data.playerId);
       const match = findMatch(data.matchId);
       if (!match) throw new PlatformError(ERROR_CODES.NOT_FOUND, "Table not found");
-      startMatchRecord(match, data.playerId);
+      startMatchRecord(match, data.playerId, { fillBots: Boolean(data.fillBots) });
       return projectMatch(match, data.playerId);
     } catch (error) {
       publicError(error);
@@ -127,6 +147,7 @@ export const getMatchFn = createServerFn({ method: "GET" })
     touchPresence(data.playerId);
     const match = findMatch(data.matchId);
     if (!match) throw new PlatformError(ERROR_CODES.NOT_FOUND, "Match not found");
+    reclaimOrTakeover(match, memory().presence);
     return projectMatch(match, data.playerId);
   });
 
@@ -167,8 +188,19 @@ export const verifyFn = createServerFn({ method: "POST" })
     });
   });
 
+export const tickBotsFn = createServerFn({ method: "POST" })
+  .validator((data: { matchId: string; playerId: string }) => data)
+  .handler(async ({ data }) => {
+    touchPresence(data.playerId);
+    const match = findMatch(data.matchId);
+    if (!match) throw new PlatformError(ERROR_CODES.NOT_FOUND, "Match not found");
+    reclaimOrTakeover(match, memory().presence);
+    await applyBotTurn(match);
+    return projectMatch(match, data.playerId);
+  });
+
 export const createAvatarJobFn = createServerFn({ method: "POST" })
-  .validator((data: { playerId: string; consent: boolean; bytes: number; type: string }) => data)
+  .validator((data: { playerId: string; consent: boolean; bytes: number; type: string; seed?: string }) => data)
   .handler(async ({ data }) => {
     if (!data.consent) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Consent is required");
     if (data.bytes <= 0 || data.bytes > 4 * 1024 * 1024) {
@@ -178,9 +210,76 @@ export const createAvatarJobFn = createServerFn({ method: "POST" })
       throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Use JPEG, PNG, or WebP");
     }
     const id = createId("av");
-    memory().avatarJobs.set(id, { status: "queued", meshId: null });
-    memory().avatarJobs.set(id, { status: "ready", meshId: `mesh_${id.slice(-8)}` });
-    return { jobId: id, status: "ready" as const, meshId: `mesh_${id.slice(-8)}`, adapter: "mock-local" };
+    const meshId = `mesh_${id.slice(-8)}`;
+    memory().avatarJobs.set(id, { status: "ready", meshId });
+    const existing = memory().avatars.get(data.playerId);
+    memory().avatars.set(data.playerId, {
+      playerId: data.playerId,
+      meshId,
+      seed: data.seed ?? meshId,
+      wardrobe: existing?.wardrobe ?? [],
+      instantiated: true,
+    });
+    if (!existing?.instantiated) {
+      memory().ledger.post({
+        userId: data.playerId,
+        matchId: null,
+        reason: "avatar_instantiate",
+        currency: "diamonds",
+        amount: 1,
+        idempotencyKey: `avatar_grant_${data.playerId}`,
+      });
+    }
+    return { jobId: id, status: "ready" as const, meshId, adapter: "procedural-local" };
+  });
+
+export const getAvatarFn = createServerFn({ method: "GET" })
+  .validator((data: { playerId: string }) => data)
+  .handler(async ({ data }) => memory().avatars.get(data.playerId) ?? null);
+
+export const buyWardrobeFn = createServerFn({ method: "POST" })
+  .validator((data) => wardrobeBuySchema.parse(data))
+  .handler(async ({ data }) => {
+    const item = WARDROBE.find((w) => w.id === data.itemId);
+    if (!item) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Unknown item");
+    const avatar = memory().avatars.get(data.playerId);
+    if (!avatar?.instantiated) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Instantiate an avatar first");
+    memory().ledger.post({
+      userId: data.playerId,
+      matchId: null,
+      reason: `wardrobe:${item.id}`,
+      currency: item.currency,
+      amount: -item.cost,
+      idempotencyKey: data.idempotencyKey,
+    });
+    if (!avatar.wardrobe.includes(item.id)) avatar.wardrobe.push(item.id);
+    return { avatar, item };
+  });
+
+export const createSquadFn = createServerFn({ method: "POST" })
+  .validator((data) => squadSchema.parse(data))
+  .handler(async ({ data }) => {
+    const code = tableCode();
+    const squad = {
+      code,
+      hostId: data.playerId,
+      members: [{ id: data.playerId, name: data.displayName }],
+    };
+    memory().squads.set(code, squad);
+    return squad;
+  });
+
+export const joinSquadFn = createServerFn({ method: "POST" })
+  .validator((data) => squadSchema.parse(data))
+  .handler(async ({ data }) => {
+    if (!data.code) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Squad code required");
+    const squad = findSquad(data.code);
+    if (!squad) throw new PlatformError(ERROR_CODES.NOT_FOUND, "Squad not found");
+    if (!squad.members.some((m) => m.id === data.playerId)) {
+      if (squad.members.length >= 6) throw new PlatformError(ERROR_CODES.INVALID_INPUT, "Squad full");
+      squad.members.push({ id: data.playerId, name: data.displayName });
+    }
+    return squad;
   });
 
 export const listGamesFn = createServerFn({ method: "GET" }).handler(async () => GAME_CATALOG);

@@ -30,6 +30,12 @@ export const ENVIRONMENT_LOCATIONS = [
   "harbor",
   "observatory",
   "desert-night",
+  "mountain",
+  "ocean",
+  "lunar",
+  "deep-space",
+  "rainforest",
+  "tundra",
 ] as const;
 
 export type EnvironmentLocation = (typeof ENVIRONMENT_LOCATIONS)[number];

@@ -19,6 +19,8 @@ export const createMatchSchema = z.object({
   clientSeed: z.string().min(1).max(128),
   seatCount: z.number().int().min(1).max(6).optional(),
   environmentLocation: z.enum(ENVIRONMENT_LOCATIONS).optional(),
+  fillBots: z.boolean().optional(),
+  squadCode: z.string().min(4).max(8).optional(),
   idempotencyKey: z.string().min(8).max(80),
 });
 
@@ -31,13 +33,36 @@ export const joinMatchSchema = z.object({
 export const startMatchSchema = z.object({
   matchId: z.string().min(8),
   playerId: z.string().min(8).max(80),
+  fillBots: z.boolean().optional(),
+});
+
+export const squadSchema = z.object({
+  playerId: z.string().min(8).max(80),
+  displayName: z.string().min(1).max(24),
+  code: z.string().min(4).max(8).optional(),
+});
+
+export const wardrobeBuySchema = z.object({
+  playerId: z.string().min(8).max(80),
+  itemId: z.string().min(2).max(40),
+  idempotencyKey: z.string().min(8).max(80),
 });
 
 export const matchActionSchema = z.object({
   matchId: z.string().min(8),
   playerId: z.string().min(8).max(80),
   type: z.string().min(1).max(40),
-  payload: z.union([z.string(), z.number(), z.array(z.number()), z.array(z.string()), z.object({ amount: z.number() })]).optional(),
+  payload: z
+    .union([
+      z.string(),
+      z.number(),
+      z.array(z.number()),
+      z.array(z.string()),
+      z.object({ amount: z.number() }),
+      z.object({ qty: z.number(), face: z.number() }),
+      z.object({ category: z.string() }),
+    ])
+    .optional(),
   clientActionNonce: z.number().int().nonnegative(),
   matchVersion: z.number().int().nonnegative(),
   idempotencyKey: z.string().min(8).max(80),
