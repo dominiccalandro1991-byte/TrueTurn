@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-CnsPX-KB.js","assets/dist-TLtlamx_.js"])))=>i.map(i=>d[i]);
+import{t as e}from"./index-CMz6U6fS.js";import{registerPlugin as t}from"./dist-TLtlamx_.js";var n=t(`SplashScreen`,{web:()=>e(()=>import(`./web-CnsPX-KB.js`).then(e=>new e.SplashScreenWeb),__vite__mapDeps([0,1]))});export{n as SplashScreen};
